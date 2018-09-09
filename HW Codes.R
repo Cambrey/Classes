@@ -5,7 +5,6 @@ output:
   df_print: paged
 ---
   
-  ```{r}
 data=read.table("c:/Users/Cambrey/Documents/R/Baltagi/CIGARETT.DAT",header=T)
 attach(data)
 names(data)
@@ -95,8 +94,7 @@ X = seq(1,10, length = 100)
 Y = X + rnorm(length(LNY), 0, 5)
 ConfidenceBandPlot(LNY,LNC, alpha = 0.05)
 abline(a=0,b=1, col ="blue")
-```
-```{r}
+
 #' ---
 #' title: Homework 3
 #' author: Cambrey Sullivan
@@ -173,8 +171,7 @@ e^(0.1062781+.5*0.0316755^2)-1
 #' Kennedy's suggested calculation:
 e^(0.095237+.5*0.0489277^2)-1
 #' 0.1012369 = 10.1% increase in earnings when married
-```
-```{r}
+
 #' ---
 #' title: Homework 4
 #' author: Cambrey Sullivan
@@ -227,8 +224,7 @@ dwtest(L.QMG.CAR ~ YR)
 library(nlme)
 gls <- gls(L.QMG.CAR ~ L.RGNP.POP + L.CAR.POP + L.PMG.PGNP, correlation=corAR1(), method = "ML")
 summary(gls)
-```
-```{r}
+
 #' ---
 #' title: Homework 5
 #' author: Cambrey Sullivan
@@ -274,8 +270,7 @@ hausman.systemfit(tsls, ols)
 #' H$_1$ -> $\hat\beta_{TSLS}$  =/= $\hat\beta_{OLS}$
 #'
 #' Because  p-value = 0.1912, <0.05, we fail to reject H$_0$, both TSLS and OLS are unbiased. However, OLS is more efficient.
-```
-```{r}
+
 #' ---
 #' title: Homework 6
 #' author: Cambrey Sullivan
@@ -321,4 +316,3 @@ fit.probit.0 <- predict(probit, within(data, FEM <- 0), type = "response")
 mean(fit.probit.1 - fit.probit.0)
 #' The marginal effect of FEM is -0.116216
 
-```
