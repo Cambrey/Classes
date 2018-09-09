@@ -1,14 +1,14 @@
 # Class projects and homeworks
-This repository contains projects and homeworks for my classes in the Economics MA program at UTSA. It is organized by class:
+This repository contains projects (P) and homeworks (HW) for my classes in the Economics MA program at UTSA. It is organized by class:
 
-ECO 6103 Econometrics and Business Forecasting
+01 - ECO 6103 Econometrics and Business Forecasting
 
-ECO 6303 Applied Econometrics	 
+02 - ECO 6303 Applied Econometrics	 
 
-ECO 6583 Special Topics in Econometrics/Forecasting	
+03 - STA 6033 Advanced Programming and Data Management in SAS	
 
-MKT 5063 Marketing Research Design and Application
+04 - ECO 6583 Special Topics in Econometrics/Forecasting	
 
-STA 6033 Advanced Programming and Data Management in SAS	
+05 - MKT 5063 Marketing Research Design and Application
 
-STA 6923 Advanced Statistical Learning/Data Mining
+06 - STA 6923 Advanced Statistical Learning/Data Mining
