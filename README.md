@@ -1,6 +1,8 @@
 # Class projects and homeworks
 This repository contains projects and homeworks for my classes in the Economics MA program at UTSA. It is organized by class:
 
+ECO 6103 Econometrics and Business Forecasting
+
 ECO 6303 Applied Econometrics	 
 
 ECO 6583 Special Topics in Econometrics/Forecasting	
