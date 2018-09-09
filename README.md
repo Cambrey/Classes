@@ -1,4 +1,4 @@
-# Econometrics
+# Class projects and homeworks
 This repository contains projects and homeworks for my classes in the Economics MA program at UTSA. It is organized by class:
 
 ECO 6303 Applied Econometrics	 
