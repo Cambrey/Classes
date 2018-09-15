@@ -1,5 +1,5 @@
-# Class projects and homeworks
-This repository contains projects (P) and homeworks (HW) for my classes in the Economics MA program at UTSA. It is organized by class:
+# Class notes, projects, and homeworks
+This repository contains notes, projects (P), and homeworks (HW) for my classes in the Economics MA program at UTSA. It is organized by class:
 
 ECO 6103 Econometrics and Business Forecasting
 
