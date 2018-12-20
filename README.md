@@ -11,7 +11,7 @@ ECO 6973 Data Analytics with Python
 
 ECO 6583 Special Topics in Econometrics/Forecasting	
 
-MKT 5063 Marketing Research Design and Application
+STA Advanced R Programming
 
 STA 6923 Advanced Statistical Learning/Data Mining
 
