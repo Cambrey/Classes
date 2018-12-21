@@ -1,0 +1,24 @@
+Title "Quiz";
+data work.Sales_status;
+	set sashelp.Retail;
+	if sales >= 300 then Bonus='Yes';
+	if sales >= 300 then Level = 'High';
+	if not missing(sales)<= 300 then Bonus='No';
+	if not missing(sales) <= 300 then Level = 'Low';
+run;
+proc print data = work.retail;
+run;
+proc freq;
+	table Bonus;
+run;
+Title "In Class";
+data work.thirdqtr;
+	set orion.mnth7_2011 orion.mnth8_2011 orion.mnth9_2011;
+run;
+proc print data=work.thirdqtr;
+run;
+PROC CONTENTS data=orion.sales;
+run;
+proc contents data=orion.nonsales;
+run;
+data 
