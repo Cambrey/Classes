@@ -1,0 +1,162 @@
+---
+title: "Visualization Project"
+author: "Cambrey Sullivan"
+date: "5/2/2020"
+output: html_document
+---
+
+```{r libraries}
+library(ggplot2)
+library(plotly)
+library(rjson)
+library(stringr)
+```
+
+# Covid-19 data
+
+First, I loaded the data from a [Githib respository](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series) run by Johns Hopkins University. The data is panel data that details the number of Covid-19 cases, deaths, and recoveries in a specified area. Each set of panel data corresponds to either US or global data. For this project, I used the US data, as I wanted to make a choropleth and the FIPS codes in the US data made the process easier.
+ 
+```{r data}
+confirmed_US <-read.csv("https://raw.github.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+
+deaths_US <-read.csv("https://raw.github.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+```
+
+
+```{r}
+head(confirmed_US)
+```
+
+```{r}
+head(deaths_US)
+```
+
+I used GeoJson data for the geographical features.
+
+```{r json}
+url <- 'https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json'
+counties <- rjson::fromJSON(file=url)
+```
+
+# Cleaning
+
+The cleaning process was pretty straightforward. I created a new column that added the total number of cases and deaths in each county. Next, I had to fix the FIPS codes in the data. 
+
+```{r totals}
+confirmed_US$totals = rowSums(confirmed_US[,-c(1:11)])
+deaths_US$totals = rowSums(deaths_US[,-c(1:12)])
+```
+
+Some of the states are supposed to have "0"s in the front of their codes, however, since the column is numeric, the "0"s disappeared. The resulting choropleths excluded all those states (see graph below).
+
+```{r FIPS_fig}
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+fig <- plot_ly()
+fig <- fig %>% add_trace(
+    type="choropleth",
+    geojson=counties,
+    locations=confirmed_US$FIPS,
+    z=confirmed_US$totals, 
+    text = confirmed_US$hover,
+    colorscale="Viridis"
+  )
+fig <- fig %>% colorbar(title = "Number of Confirmed Cases")
+fig <- fig %>% layout(
+    title = "Covid-19 Cases by US County<br>(note states missing data)"
+)
+
+fig <- fig %>% layout(
+    geo = g
+  )
+
+fig
+```
+
+We see that Alabama is one of the states that is missing data in the map. We can also look back at the data head() function above and see that Autauga County, AL FIPS code in our data is 1001. However, the actualy FIPS code for that Autauga County is 01001. The UID variable is the FIPS code preceeded by the US country code (840). I converted the UID variable into characters and removed the country code to use as the FIPS code.
+
+```{r FIPS_map}
+confirmed_US$UID = as.character(confirmed_US$UID)
+deaths_US$UID = as.character(deaths_US$UID)
+
+confirmed_US$FIPS_map = str_remove(confirmed_US$UID,"^840")
+deaths_US$FIPS_map = str_remove(deaths_US$UID,"^840")
+```
+
+# Visualizatins
+
+I used plotly to create both following the maps. I added a hover tool that tells you the name of the county, state, and number of confirmed cases or deaths, depending on the particular map.
+
+```{r confirmed_fig}
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+confirmed_US$hover <- with(confirmed_US, paste(Admin2, "County, ", Province_State, "<br>", "Number of Confirmed Cases: ", totals))
+
+fig1 <- plot_ly()
+fig1 <- fig1 %>% add_trace(
+    type="choropleth",
+    geojson=counties,
+    locations=confirmed_US$FIPS_map,
+    z=confirmed_US$totals, 
+    text = confirmed_US$hover,
+    colorscale="Viridis"
+  )
+fig1 <- fig1 %>% colorbar(title = "Number of Confirmed Cases")
+fig1 <- fig1 %>% layout(
+    title = "Covid-19 Cases by US County<br>(hover for breakdown)"
+)
+
+fig1 <- fig1 %>% layout(
+    geo = g
+  )
+
+fig1
+```
+
+```{r deaths_fig}
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+deaths_US$hover <- with(deaths_US, paste(Admin2, "County, ", Province_State, "<br>", "Number of Deaths: ", totals))
+
+fig2 <- plot_ly()
+fig2 <- fig2 %>% add_trace(
+    type="choropleth",
+    geojson=counties,
+    locations=deaths_US$FIPS_map,
+    z=deaths_US$totals, 
+    zmax=4000000,
+    text = deaths_US$hover,
+    colorscale="Viridis"
+  )
+fig2 <- fig2 %>% colorbar(title = "Number of Deaths<br>(hover for breakdown")
+fig2 <- fig2 %>% layout(
+    title = "Covid-19 Deaths by US County"
+)
+
+fig2 <- fig2 %>% layout(
+    geo = g
+  )
+
+fig2
+```
+
+```{r, echo=FALSE}
+confirmed_g <-read.csv("https://raw.github.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
+
+deaths_g <-read.csv("https://raw.github.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
+
+recovered_g <-read.csv("https://raw.github.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")
+```
+
