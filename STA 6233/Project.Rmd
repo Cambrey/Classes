@@ -87,9 +87,11 @@ confirmed_US$FIPS_map = str_remove(confirmed_US$UID,"^840")
 deaths_US$FIPS_map = str_remove(deaths_US$UID,"^840")
 ```
 
-# Visualizatins
+# Visualizations
 
-I used plotly to create both following the maps. I added a hover tool that tells you the name of the county, state, and number of confirmed cases or deaths, depending on the particular map.
+## US Choropleths
+
+I used plotly to create all visualizations. I added a hover tool that tells you the name of the county, state, and number of confirmed cases or deaths, depending on the particular map.
 
 ```{r confirmed_fig}
 g <- list(
@@ -136,13 +138,12 @@ fig2 <- fig2 %>% add_trace(
     geojson=counties,
     locations=deaths_US$FIPS_map,
     z=deaths_US$totals, 
-    zmax=4000000,
     text = deaths_US$hover,
     colorscale="Viridis"
   )
-fig2 <- fig2 %>% colorbar(title = "Number of Deaths<br>(hover for breakdown")
+fig2 <- fig2 %>% colorbar(title = "Number of Deaths<")
 fig2 <- fig2 %>% layout(
-    title = "Covid-19 Deaths by US County"
+    title = "Covid-19 Deaths by US Countybr>(hover for breakdown)"
 )
 
 fig2 <- fig2 %>% layout(
@@ -151,6 +152,104 @@ fig2 <- fig2 %>% layout(
 
 fig2
 ```
+
+## Bar Charts
+
+I also wanted to look at the number of cases and deaths by state. It's clear from the graphs that New York has the most cases and deaths, by far, so I'll also make choropleths of just New York.
+
+```{r}
+fig3 <- plot_ly(
+  x = confirmed_US$Province_State,
+  y = confirmed_US$totals,
+  name = "Cov id-19 Cases by State",
+  type = "bar"
+)
+fig3 <- fig3 %>% layout(
+    title = "Covid-19 Confirmed Cases by US State"
+)
+fig3
+```
+
+```{r}
+fig4 <- plot_ly(
+  x = deaths_US$Province_State,
+  y = deaths_US$totals,
+  name = "Covid-19 Deaths per State",
+  type = "bar"
+)
+fig4 <- fig4 %>% layout(
+    title = "Covid-19 Deaths by US State"
+)
+fig4
+```
+
+## New York Choropleths
+
+```{r}
+confirmed_ny = subset(confirmed_US, Province_State == "New York")
+deaths_ny = subset(deaths_US, Province_State == "New York")
+```
+
+```{r}
+g <- list(
+  fitbounds = "locations",
+  visible = FALSE
+)
+deaths_ny$hover <- with(deaths_ny, paste(Admin2, "County, ", "Number of Confirmed Cases: ", totals))
+
+fig5 <- plot_ly()
+fig5 <- fig5 %>% add_trace(
+    type="choropleth",
+    geojson=counties,
+    locations=confirmed_ny$FIPS_map,
+    z=confirmed_ny$totals, 
+    zmin=0,
+    zmax=900000,
+    text = confirmed_ny$hover,
+    colorscale="Viridis"
+  )
+fig5 <- fig5 %>% colorbar(title = "Number of Cases")
+fig5 <- fig5 %>% layout(
+    title = "Covid-19 Confirmed Cases in NY Counties<br>(hover for breakdown)"
+)
+
+fig5 <- fig5 %>% layout(
+    geo = g
+  )
+
+fig5
+```
+
+```{r}
+g <- list(
+  fitbounds = "locations",
+  visible = FALSE
+)
+deaths_ny$hover <- with(deaths_ny, paste(Admin2, "County, ", "Number of Deaths: ", totals))
+
+fig6 <- plot_ly()
+fig6 <- fig6 %>% add_trace(
+    type="choropleth",
+    geojson=counties,
+    locations=deaths_ny$FIPS_map,
+    z=deaths_ny$totals, 
+    zmin=0,
+    zmax=35000,
+    text = deaths_ny$hover,
+    colorscale="Viridis"
+  )
+fig6 <- fig6 %>% colorbar(title = "Number of Deaths")
+fig6 <- fig6 %>% layout(
+    title = "Covid-19 Deaths in NY Counties<br>(hover for breakdown)"
+)
+
+fig6 <- fig6 %>% layout(
+    geo = g
+  )
+
+fig6
+```
+
 
 ```{r, echo=FALSE}
 confirmed_g <-read.csv("https://raw.github.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
