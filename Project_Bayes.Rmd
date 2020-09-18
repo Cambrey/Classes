@@ -1,0 +1,444 @@
+---
+title: "Project"
+author: "Cambrey Sullivan"
+date: "11/23/2019"
+output:
+  word_document: default
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, echo=FALSE}
+#install.packages("readxl")
+#install.packages("e1071")
+#install.packages("class")
+#install.packages('glmnet')
+#install.packages("ggplot2")
+#install.packages("knitr")
+library(ggplot2)
+library(reshape2)
+library(glmnet)
+library(caret)
+library(ROCR)
+```
+
+
+```{r, echo=FALSE}
+library(readxl)
+data=read_xls("CreditDefault.xls")
+names(data)[names(data) == "default payment next month"] = "default"
+row.names(data) <- data$ID
+data[1] <- NULL
+d.data=data
+d.data$SEX<-as.factor(d.data$SEX)
+d.data$EDUCATION<-as.factor(d.data$EDUCATION)
+d.data$MARRIAGE<-as.factor(d.data$MARRIAGE)
+d.data$default<-as.factor(d.data$default)
+```
+
+
+```{r data_split}
+set.seed(123)
+sample.ind = sample(seq(1,dim(data)[1], 1),floor(0.01*dim(data)[1]), replace = F)
+tr.ind = sample(seq(1,dim(data)[1], 1),floor(0.7*dim(data)[1]), replace = F)
+samp.data = data[sample.ind,]
+d.train.data=data[tr.ind,]
+d.test.data=data[-tr.ind,]
+```
+
+# The Data
+
+The data is from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients). It follows 30,000 lines of credit over a 5 month period and records which default and which don't. There are 23 explanatory variables:
+
+X1: Amount of the given credit (NT dollar): it includes both the individual consumer credit and his/her family (supplementary) credit.
+
+X2: Gender (1 = male; 2 = female).
+
+X3: Education (1 = graduate school; 2 = university; 3 = high school; 4 = others).
+X4: Marital status (1 = married; 2 = single; 3 = others).
+
+X5: Age (year).
+
+X6 - X11: History of past payment. We tracked the past monthly payment records (from April to September, 2005) as follows: 
+X6 = the repayment status in September, 2005; 
+X7 = the repayment status in August, 2005; 
+...;
+X11 = the repayment status in April, 2005. The measurement scale for the repayment status is: -1 = pay duly; 1 = payment delay for one month; 2 = payment delay for two months; . . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above.
+
+X12-X17: Amount of bill statement (NT dollar).
+X12 = amount of bill statement in September, 2005; 
+X13 = amount of bill statement in August, 2005;
+...; 
+X17 = amount of bill statement in April, 2005.
+
+X18-X23: Amount of previous payment (NT dollar). 
+X18 = amount paid in September, 2005; 
+X19 = amount paid in August, 2005; 
+...;
+X23 = amount paid in April, 2005.
+
+The main objective of this project is to compare frequentest logistic regression results with a a Bayesian Logistic regression using smaller sample size from the data.
+
+```{r}
+ggplot(data=d.data, aes(x=default))+
+  geom_bar(fill="steelblue")+ 
+  labs(title="Response Variable Distribution", x="Loan Status", y=NULL)+
+  scale_x_discrete(breaks=c("0", "1"), labels=c("Loan not in Default", "Loan in Default"))+
+  theme_minimal()
+
+```
+
+As we see above, defaulters constitute 6,636 individuals of the total 30,000 individuals included in the data set. This accounts for 22.12% of all customers. The non-proportionality of classes means that assessing the performance of models solely based on test accuracy could be misleading.  For example, a model that predicts all test observations as zero has a 78% accuracy rate. However, this does not mean that model is performing well. With this as a backdrop, we tried to assess each individual model based on its performance on a list of statistics besides accuracy.  
+
+## Multicollinearity
+
+One of the common problems associated with explanatory variables is a problem of multicollinearity. 
+
+```{r}
+cormat=cor(data[, c(1,4:23)])
+melted_cormat <- melt(cormat)
+
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()+ 
+ theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
+  ggtitle("Correlation Heat Map")
+```
+
+We found that the bill amount variables (X_12-X_17) were highly correlated with one another. The following correlation matrix on those variables indicate, their mutual correlation coefficients are greater than 0.9 in absolute value. 
+
+```{r}
+which((cor(data[, c(1,4:23)])>=0.9 & cor(data[, c(1,4:23)]) < 1), arr.ind=TRUE)
+```
+
+# Frequentist Logistic Regression
+
+```{r}
+library(glmnet)
+library(MASS)
+```
+
+Given the explanatory variables, logistic regression assumes that each response variable follows a Bernoulli distribution with probability of $p(y_i=1|X)$
+
+$y_i |X \sim Bernoulli(p(y_i=1|X))$
+
+Since the link function for $p(y_i=1???X)$  is a logistic distribution, finding the coefficients of the variables involve maximizing the following distribution with respect to the coefficients:
+
+$$
+\begin{align}
+L(y_i\mid \mathbf{X}) \sim \prod_{i=1}^{n} (\frac{1}{1+e^{-\mathbf{XB}}})^ {\sum_{i=1}^{n}y_i}(\frac{e^{-\mathbf{XB}}}{1+e^{-\mathbf{XB}}})^ {n-\sum_{i=1}^{n}y_i}
+\end{align}
+$$
+
+
+```{r}
+logit=glm(default ~., data=d.train.data, family = binomial)
+summary(logit)
+```
+
+We can see that the logistic regression on the training data set has numerous coefficients which are not statistically significant (p-value >0.05) as seen in table 3. These exceptions are likely due to the multicollinearity present in the billing amount variables.
+
+```{r}
+p = predict(logit, d.test.data[, 1:24], type = "response")
+pred.logistics= ifelse(p > 0.5, 1, 0)
+```
+
+```{r}
+library(caret)
+```
+
+## Confusion Matrix
+
+As seen in the table below, nearly a third of defaulters, 200 of the total 657, are missclassified as non defaulters. As such, this method of classification on the given data set may not be the best method of classification. We are more interested in the misclassifications of defaulters than non-defaulters, since response variable is not proportional.
+
+```{r}
+confusionMatrix(as.factor(d.test.data$default), as.factor(pred.logistics))
+```
+
+# Bayesian Logistic Regression
+
+For this project, we used JAGS in R to fit the Bayesian logistic model. The model description along with the likelihood and priors can be seen in the code below.
+
+```{r, echo=TRUE}
+n <- length(samp.data$default)
+bin.col<-c(2:4, 24)
+norm.col<-c(1, 5:23)
+  
+  logistic_model <- "model{
+
+   # Likelihood
+
+   for(i in 1:n){
+    Y[i] ~ dbern(q[i])
+    logit(q[i]) <- beta[1] + beta[2]*X[i,1] + beta[3]*X[i,2] + beta[4]*X[i,3] + beta[5]*X[i,4] + beta[6]*X[i,5] +
+                  beta[7]*X[i,6] + beta[8]*X[i,7] + beta[9]*X[i,8] + beta[10]*X[i,9] + beta[11]*X[i,10] +
+                  beta[12]*X[i,11] + beta[13]*X[i,12] + beta[14]*X[i,13] + beta[15]*X[i,14] + beta[16]*X[i,15] +
+                  beta[17]*X[i,16] + beta[18]*X[i,17] + beta[19]*X[i,18] + beta[20]*X[i,19] + beta[21]*X[i,20] +
+                  beta[22]*X[i,21] + beta[23]*X[i,22] + beta[24]*X[i,23]
+   }
+
+   #Priors
+
+   for(j in 1:24){
+    beta[j] ~ dnorm(0,1000)
+   }
+  }"
+```
+
+
+```{r, echo=TRUE}
+library(rjags)
+
+  dat   <- list(Y=samp.data$default,n=n,X=samp.data[ -c(24) ])
+  model <- jags.model(textConnection(logistic_model),data = dat,n.chains=3, quiet=TRUE)
+
+  
+  update(model, 10000, progress.bar="gui")
+
+  samp <- coda.samples(model, 
+          variable.names=c("beta"), 
+          n.iter=20000, progress.bar="gui")
+```
+
+## Diagnostics
+
+### Trace Plots
+
+```{r}
+traceplot(samp)
+```
+
+
+### Autocorrelation Plots
+
+We see autocorrelation for the variables with high correlation with other variables. This is not concerning for the MCMC. We used a burn in period anyway.
+
+```{r}
+# autocorr.plot(samp)[beta[13]]
+```
+
+
+### Gelman Plots
+
+```{r}
+# gelman.plot(samp)
+```
+
+Indeed, the Gelman plots don't suggest non-convergence. 
+
+###  Effective Sample Size
+
+```{r}
+ effectiveSize(samp)
+```
+
+
+### Geweke Diagnostic
+
+```{r}
+geweke.diag(samp)
+
+```
+
+## Bayesian Output
+
+The following table is the output for the Bayesian model.
+
+```{r}
+summary(samp)
+```
+
+```{r}
+beta1 <- samp[[1]]  # samples from chain 1
+beta2 <- samp[[2]]
+beta3 <- samp[[3]]
+
+beta  <- rbind(beta1,beta2,beta3)
+dim(beta1)
+```
+
+```{r}
+odds  <- exp(beta)
+colnames(odds)<-c("Int",colnames(samp.data[ -c(24) ]))
+odds  <- odds[,-1]
+apply(odds,2,mean)
+```
+
+```{r}
+apply(odds,2,sd)
+```
+
+```{r}
+
+for(j in 1:23){
+
+  hist(odds[,j],breaks=50,main=colnames(samp.data[ -c(24) ])[j],xlab="Odds")
+  
+}
+```
+
+# Results
+
+```{r}
+coefb = summary(samp)$statistics[,1]
+sdb = summary(samp)$statistics[,2]
+coef2 = summary(logit)$coefficients[,1]
+sd2 = summary(logit)$coefficients[,2]
+compare = as.data.frame(cbind(coefb, coef2, sdb, sd2))
+
+names(compare) = c("Bayesian Means", "Frequntist Estimates", "Bayesian SD", "Frequntist SE")
+
+print(compare)
+```
+
+# Conclusion
+To Do:
+Run more iterations
+add interaction terms
+transform the highly correlated variables
+factors
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
