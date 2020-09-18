@@ -1,6 +1,6 @@
 ---
 title: "Project"
-author: "Ambassador Negash"
+author: "Group 5"
 date: "11/23/2019"
 output:
   word_document: default
