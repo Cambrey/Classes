@@ -15,4 +15,4 @@ STA 6233 Advanced Statistical Programming Using R
 
 STA 6923 Advanced Statistical Learning/Data Mining
 
-
+STA 6113 Applied Bayesian Statistics
