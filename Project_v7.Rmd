@@ -1,0 +1,1204 @@
+---
+title: "Project"
+author: "Ambassador Negash"
+date: "11/23/2019"
+output:
+  word_document: default
+  reference_docx: E:/DataMining/Project/Figs.docx
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(rmarkdown)
+library(yaml)
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Reading the data:
+
+```{r, echao=FALSE}
+#install.packages("readxl")
+#install.packages("e1071")
+#install.packages("class")
+#install.packages('glmnet')
+library(readxl)
+```
+
+```{r}
+data=read_xls("CreditDefault.xls")
+names(data)[names(data) == "default payment next month"] = "default"
+d.data=data[, 2:25]
+d.data$SEX<-as.factor(d.data$SEX)
+d.data$EDUCATION<-as.factor(d.data$EDUCATION)
+d.data$MARRIAGE<-as.factor(d.data$MARRIAGE)
+head(data)
+```
+```{r}
+d.data
+d.data$SEX<-as.factor(d.data$SEX)
+d.data$EDUCATION<-as.factor(d.data$EDUCATION)
+d.data$MARRIAGE<-as.factor(d.data$MARRIAGE)
+```
+
+## Dimension and column of the data:
+
+```{r}
+dim(data)
+names(data)
+```
+
+```{r}
+data=data[, 2:25]
+summary(data)
+```
+```{r}
+barplot(table(as.factor(data$default)),main="Distribution of Default", xlab="Default", ylim=c(0, 25000))
+
+```
+
+```{r}
+table(as.factor(data$default))
+```
+
+## Correlation matrix:
+```{r}
+cor(data[, 1:24])
+```
+
+## Which columns are highly correlated
+
+```{r}
+which((cor(data[, 1:24])>=0.9 & cor(data[, 1:24]) < 1), arr.ind=TRUE)
+```
+
+
+## There seems to be an autocorrelation in the bill payments variables:
+
+```{r}
+plot(data$BILL_AMT1, type='l', col='red')
+lines(data$BILL_AMT2, col='green')
+```
+
+```{r}
+par(mfrow=c(2, 3))
+plot(data$BILL_AMT1, data$BILL_AMT2)
+plot(data$BILL_AMT2, data$BILL_AMT3)
+plot(data$BILL_AMT3, data$BILL_AMT4)
+plot(data$BILL_AMT4, data$BILL_AMT5)
+plot(data$BILL_AMT5, data$BILL_AMT6)
+plot(data$BILL_AMT4, data$BILL_AMT6)
+```
+
+## Therefore, there will be a multicollinearity problem, specially on the category of bill amount variables :
+
+
+```{r}
+#pairs(data[, 1:24])
+```
+
+
+
+
+## sampling training and test data
+
+```{r}
+set.seed(123)
+tr.ind = sample(seq(1,dim(data)[1], 1),floor(0.7*dim(data)[1]), replace = F)
+train.data = data[tr.ind,]
+test.data  = data[-tr.ind,]
+d.train.data=d.data[tr.ind,]
+d.test.data=d.data[-tr.ind,]
+```
+
+
+## Logistics Regression:
+```{r}
+library(glmnet)
+library(MASS)
+```
+
+
+```{r}
+logit=glm(default ~., data=d.train.data, family = binomial)
+summary(logit)
+```
+
+```{r}
+p = predict(logit, d.test.data[, 1:24], type = "response")
+pred.logistics= ifelse(p > 0.5, 1, 0)
+table(pred.logistics, d.test.data$default)
+```
+```{r}
+library(caret)
+```
+
+## Confusion Matrix Logitics regression
+
+```{r}
+confusionMatrix(as.factor(d.test.data$default), as.factor(pred.logistics))
+```
+
+## ROC Curve
+
+```{r}
+library(ROCR)
+```
+
+```{r}
+logit.roc = prediction(p, d.test.data$default)
+perf.logit.roc = performance(logit.roc,"tpr","fpr")
+plot(perf.logit.roc, col = "red", main="ROC Plot for Logistic Regression Fit")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Logit
+
+```{r}
+pred.auc.logit = performance(logit.roc,"auc")
+pred.auc.logit@y.values[[1]]
+```
+
+## LDA
+
+```{r}
+lda=lda(default ~., data=train.data)
+lda
+```
+
+
+```{r}
+pred.lda = predict(lda, test.data[, 1:24])
+table(pred.lda$class, test.data$default)
+```
+
+## Confusion Matrix LDA
+
+```{r}
+confusionMatrix(pred.lda$class, as.factor(test.data$default))
+```
+
+
+## ROC Curve
+
+```{r}
+lda.roc = prediction(pred.lda$posterior[,2], test.data$default)
+perf.lda.roc = performance(lda.roc,"tpr","fpr")
+plot(perf.lda.roc, col = "red", main="ROC Plot for LDA Fit")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for LDA
+
+```{r}
+pred.auc.lda = performance(lda.roc,"auc")
+pred.auc.lda@y.values[[1]]
+```
+
+
+
+
+
+## QDA
+
+```{r}
+qda=qda(default ~., data=train.data)
+qda
+```
+
+
+```{r}
+pred.qda = predict(qda, test.data[, 1:24])
+table(pred.qda$class, test.data$default)
+```
+
+
+## Confusion Matrix QDA
+
+
+```{r}
+confusionMatrix(pred.qda$class, as.factor(test.data$default))
+```
+
+## ROC Curve
+
+```{r}
+qda.roc = prediction(pred.qda$posterior[,2], test.data$default)
+perf.qda.roc = performance(qda.roc,"tpr","fpr")
+plot(perf.qda.roc, col = "red", main="ROC Plot for QDA Fit")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for QDA
+
+```{r}
+pred.auc.qda = performance(qda.roc,"auc")
+pred.auc.qda@y.values[[1]]
+```
+
+
+
+## KNN=1:
+
+```{r}
+
+library(class)
+```
+
+
+```{r}
+pred.knn1= knn(as.matrix(train.data[,1:24]), as.matrix(test.data[, 1:24]), train.data$default, k = 1, prob = TRUE)
+table(pred.knn1, as.factor(test.data$default))
+```
+
+## Confusion Matrix for 1NN
+
+```{r}
+confusionMatrix(as.factor(pred.knn1), as.factor(test.data$default))
+```
+
+## ROC Curve
+
+
+```{r}
+knn1.roc = prediction(attributes(pred.knn1)$prob, test.data$default)
+perf.knn1.roc = performance(knn1.roc,"tpr","fpr")
+plot(perf.knn1.roc, col = "red", main="ROC Plot for 1NN Fit")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for 1NN
+
+```{r}
+pred.auc.knn1 = performance(knn1.roc,"auc")
+pred.auc.knn1@y.values[[1]]
+```
+
+
+
+
+
+## KNN K=5
+
+```{r}
+pred.knn5= knn(as.matrix(train.data[,1:24]), as.matrix(test.data[, 1:24]), train.data$default, k = 5, prob = TRUE)
+table(pred.knn5, as.factor(test.data$default))
+```
+
+
+## Confusion Matrix for 5NN
+
+```{r}
+confusionMatrix(as.factor(pred.knn5), as.factor(test.data$default))
+```
+
+
+
+## ROC Curve
+
+
+```{r}
+knn5.roc = prediction(attributes(pred.knn5)$prob, test.data$default)
+perf.knn5.roc = performance(knn5.roc,"tpr","fpr")
+plot(perf.knn5.roc, col = "red", main="ROC Plot for 5NN Fit")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for 5NN
+
+```{r}
+pred.auc.knn5 = performance(knn5.roc,"auc")
+pred.auc.knn5@y.values[[1]]
+```
+
+
+## KNN K=10
+
+```{r}
+pred.knn10= knn(as.matrix(train.data[,1:24]), as.matrix(test.data[, 1:24]), train.data$default, k = 10, prob = TRUE)
+table(pred.knn10, as.factor(test.data$default))
+```
+
+
+
+
+
+```{r}
+confusionMatrix(as.factor(pred.knn10), as.factor(test.data$default))
+```
+
+
+## ROC Curve
+
+
+```{r}
+knn10.roc = prediction(attributes(pred.knn10)$prob, test.data$default)
+perf.knn10.roc = performance(knn10.roc,"tpr","fpr")
+plot(perf.knn10.roc, col = "red", main="ROC Plot for 10NN Fit")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for 10NN
+
+```{r}
+pred.auc.knn10 = performance(knn10.roc,"auc")
+pred.auc.knn10@y.values[[1]]
+```
+
+
+## Naive Bayes
+
+
+```{r}
+library(e1071)
+```
+
+
+```{r}
+nb = naiveBayes(default ~ ., data=train.data)
+prob.nb = predict(nb, newdata = test.data, type = "raw")
+pred.nb = ifelse(prob.nb[,2]>0.5,1,0)
+table(pred.nb, as.factor(test.data$default))
+```
+
+
+## Confusion Matrix Naive Bayes:
+
+```{r}
+library(caret)
+confusionMatrix(as.factor(pred.nb), as.factor(test.data$default))
+```
+
+
+## ROC Curve
+
+
+```{r}
+nb.roc = prediction(prob.nb[,2], test.data$default)
+perf.nb.roc = performance(nb.roc,"tpr","fpr")
+plot(perf.nb.roc, col = "red", main="ROC Plot for Naive Bayes Fit")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for Naive Bayes
+
+```{r}
+pred.auc.nb = performance(nb.roc,"auc")
+pred.auc.nb@y.values[[1]]
+```
+
+
+```{r}
+logit=confusionMatrix(as.factor(test.data$default), as.factor(pred.logistics))
+lda=confusionMatrix(pred.lda$class, as.factor(test.data$default))
+qda=confusionMatrix(pred.qda$class, as.factor(test.data$default))
+knn1=confusionMatrix(as.factor(pred.knn1), as.factor(test.data$default))
+knn5=confusionMatrix(as.factor(pred.knn5), as.factor(test.data$default))
+knn10=confusionMatrix(as.factor(pred.knn10), as.factor(test.data$default))
+nb=confusionMatrix(as.factor(pred.nb), as.factor(test.data$default))
+
+table1=data.frame(matrix(c(logit$overall[1], logit$byClass[1], logit$byClass[2], logit$overall[2], pred.auc.logit@y.values[[1]], 
+                  lda$overall[1], lda$byClass[1], lda$byClass[2], lda$overall[2], pred.auc.lda@y.values[[1]],
+                  qda$overall[1], qda$byClass[1], qda$byClass[2], qda$overall[2], pred.auc.qda@y.values[[1]],
+                  knn1$overall[1], knn1$byClass[1], knn1$byClass[2], knn1$overall[2], "NA" ,
+                  knn5$overall[1], knn5$byClass[1], knn5$byClass[2], knn5$overall[2], "NA",
+                  knn10$overall[1], knn10$byClass[1], knn10$byClass[2], knn10$overall[2], "NA" ,
+                  nb$overall[1], nb$byClass[1], nb$byClass[2], nb$overall[2], pred.auc.nb@y.values[[1]]), ncol = 7))
+
+
+colnames(table1)=c("Logistics", "LDA", "QDA", "KNN=1", "KNN=5", "KNN=10", "Naive Bayes")
+row.names(table1)=c("Accuracy", "Sensitivity", "Specificity", "Kappa", "AUC")
+table1
+```
+
+
+
+# Ridge Regression  
+
+
+```{r}
+library(glmnet)
+x.train = model.matrix(default ~ ., d.train.data)[,-1]
+x.test = model.matrix(default ~ ., d.test.data)[,-1]
+y.train=train.data$default
+y.test =test.data$default
+ridge.cv = cv.glmnet(x.train, y.train, family = "binomial", alpha = 0, type.measure = "class", nfolds = 10)
+```
+
+Plot of the 1se crossvalidation $\lambda$
+
+```{r}
+plot(ridge.cv)
+```
+
+
+```{r}
+c(log(ridge.cv$lambda.min), log(ridge.cv$lambda.1se))
+```
+```{r}
+c(ridge.cv$lambda.min, ridge.cv$lambda.1se)
+```
+
+
+## Prediction 
+
+$\lambda=0.01$
+
+```{r}
+ridge.min=glmnet(x.train, y.train, family = "binomial", alpha = 0, lambda =ridge.cv$lambda.min)
+coef(ridge.min)
+```
+
+
+```{r}
+prob.ridge.min=predict(ridge.min, x.test)
+pred.ridge.min = ifelse(prob.ridge.min > 0.5, 1, 0)
+table(pred.ridge.min, y.test)
+```
+
+
+
+
+
+## Confusion Matrix for Ridge with minimum Lambda:
+
+
+```{r}
+library(caret)
+confusionMatrix(as.factor(pred.ridge.min), as.factor(test.data$default))
+```
+
+## ROC Curve
+
+
+```{r}
+ridge.min.logit.roc = prediction(prob.ridge.min, test.data$default)
+perf.ridge.min.logit.roc = performance(ridge.min.logit.roc,"tpr","fpr")
+plot(perf.ridge.min.logit.roc, col = "red", main="ROC Plot for Ridge Logistic Regression with Minimum Lambda")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Ridge Logit with min lambda
+
+```{r}
+pred.auc.ridge.min.logit = performance(ridge.min.logit.roc,"auc")
+pred.auc.ridge.min.logit@y.values[[1]]
+```
+
+
+
+
+$Ridge~~ Logistics~~ regression~~ with~~\lambda= 533.6699$
+
+
+```{r}
+ridge.1se=glmnet(x.train, y.train, family = "binomial", alpha = 0, lambda =ridge.cv$lambda.1se)
+coef(ridge.1se)
+```
+
+# It is an intercept model.
+
+
+
+```{r}
+prob.ridge.1se=predict(ridge.1se, x.test)
+pred.ridge.1se = ifelse(prob.ridge.1se > 0.5, 1, 0)
+table(pred.ridge.1se, y.test)
+```
+
+```{r}
+confusionMatrix(as.factor(pred.ridge.1se), as.factor(test.data$default))
+```
+
+## ROC Curve
+
+
+```{r}
+ridge.1se.logit.roc = prediction(prob.ridge.1se, test.data$default)
+perf.ridge.1se.logit.roc = performance(ridge.1se.logit.roc,"tpr","fpr")
+plot(perf.ridge.1se.logit.roc, col = "red", main="ROC Plot for Ridge Logistic Regression with 1SE Lambda")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Ridge Logit with 1se lambda
+
+```{r}
+pred.auc.ridge.1se.logit = performance(ridge.1se.logit.roc,"auc")
+pred.auc.ridge.1se.logit@y.values[[1]]
+```
+
+
+## LASSO Regression  
+
+```{r}
+lasso.cv = cv.glmnet(x.train, y.train, family = "binomial", alpha = 1, type.measure = "class", nfolds = 10)
+```
+
+```{r}
+plot(lasso.cv)
+```
+
+
+```{r}
+c(log(lasso.cv$lambda.min), log(lasso.cv$lambda.1se))
+```
+
+
+
+```{r}
+c(lasso.cv$lambda.min, lasso.cv$lambda.1se)
+```
+
+## Predicting LASSO with lamda min
+$\lambda=0.0006896948$
+
+```{r}
+lasso.min=glmnet(x.train, y.train, family = "binomial", alpha = 1, lambda =lasso.cv$lambda.min)
+coef(lasso.min)
+```
+
+
+```{r}
+prob.lasso.min=predict(lasso.min, x.test)
+pred.lasso.min = ifelse(prob.lasso.min > 0.5, 1, 0)
+table(pred.lasso.min, y.test)
+```
+
+```{r}
+confusionMatrix(as.factor(pred.lasso.min), as.factor(test.data$default))
+```
+
+## ROC Curve
+
+
+```{r}
+lasso.min.logit.roc = prediction(prob.lasso.min, test.data$default)
+perf.lasso.min.logit.roc = performance(lasso.min.logit.roc,"tpr","fpr")
+plot(perf.lasso.min.logit.roc, col = "red", main="ROC Plot for Lasso Logistic Regression with Minimum Lambda")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Lasso Logit with min lambda
+
+```{r}
+pred.auc.lasso.min.logit = performance(lasso.min.logit.roc,"auc")
+pred.auc.lasso.min.logit@y.values[[1]]
+```
+
+
+
+## Predicting LASSO with lamda 1se
+$\lambda=0.0036806939$
+
+
+```{r}
+lasso.1se=glmnet(x.train, y.train, family = "binomial", alpha = 1, lambda =lasso.cv$lambda.1se)
+coef(lasso.1se)
+```
+
+
+
+```{r}
+prob.lasso.1se=predict(lasso.1se, x.test)
+pred.lasso.1se = ifelse(prob.lasso.1se > 0.5, 1, 0)
+table(pred.lasso.1se, y.test)
+```
+
+
+
+```{r}
+confusionMatrix(as.factor(pred.lasso.1se), as.factor(test.data$default))
+```
+
+
+```{r}
+lasso.1se.logit.roc = prediction(prob.lasso.1se, test.data$default)
+perf.lasso.1se.logit.roc = performance(lasso.1se.logit.roc,"tpr","fpr")
+plot(perf.lasso.1se.logit.roc, col = "red", main="ROC Plot for Lasso Logistic Regression with 1SE Lambda")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Lasso Logit with min lambda
+
+```{r}
+pred.auc.lasso.1se.logit = performance(lasso.1se.logit.roc,"auc")
+pred.auc.lasso.1se.logit@y.values[[1]]
+```
+
+
+
+## Elastic Net, with $\alpha=0.5$  
+
+Identifying $\lambda$
+
+```{r}
+elastic.cv = cv.glmnet(x.train, y.train, family = "binomial", alpha = 0.5, type.measure = "class", nfolds = 10)
+```
+
+```{r}
+plot(elastic.cv)
+```
+
+
+
+```{r}
+c(log(elastic.cv$lambda.min), log(elastic.cv$lambda.1se))
+```
+
+
+
+```{r}
+c(elastic.cv$lambda.min, elastic.cv$lambda.1se)
+```
+
+
+## Elastic net prediction with $\lambda =0.0005$
+
+
+```{r}
+elastic.min=glmnet(x.train, y.train, family = "binomial", alpha = 0.5, lambda =elastic.cv$lambda.min)
+coef(elastic.min)
+```
+
+
+#Confusion Matrix:
+
+
+```{r}
+prob.elastic.min=predict(elastic.min, x.test)
+pred.elastic.min = ifelse(prob.elastic.min > 0.5, 1, 0)
+table(pred.elastic.min, y.test)
+```
+
+```{r}
+confusionMatrix(as.factor(pred.elastic.min), as.factor(test.data$default))
+```
+
+
+## ROC Curve
+
+
+```{r}
+elastic.min.logit.roc = prediction(prob.elastic.min, test.data$default)
+perf.elastic.min.logit.roc = performance(elastic.min.logit.roc,"tpr","fpr")
+plot(perf.elastic.min.logit.roc, col = "red", main="ROC Plot for Elastic Logistic Regression with Minimum Lambda")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Elastic Logit with min lambda
+
+```{r}
+pred.auc.elastic.min.logit = performance(elastic.min.logit.roc,"auc")
+pred.auc.elastic.min.logit@y.values[[1]]
+```
+
+
+
+
+
+## Elastic net prediction with $\lambda =0.0007$
+
+
+
+```{r}
+elastic.1se=glmnet(x.train, y.train, family = "binomial", alpha = 0.5, lambda =elastic.cv$lambda.1se)
+coef(elastic.1se)
+```
+
+
+#Confusion Matrix:
+
+
+```{r}
+prob.elastic.1se=predict(elastic.1se, x.test)
+pred.elastic.1se = ifelse(prob.elastic.1se > 0.5, 1, 0)
+table(pred.elastic.1se, y.test)
+```
+
+```{r}
+confusionMatrix(as.factor(pred.elastic.1se), as.factor(d.test.data$default))
+```
+
+## ROC Curve
+
+
+```{r}
+elastic.1se.logit.roc = prediction(prob.elastic.1se, test.data$default)
+perf.elastic.1se.logit.roc = performance(elastic.1se.logit.roc,"tpr","fpr")
+plot(perf.elastic.1se.logit.roc, col = "red", main="ROC Plot for Elastic Logistic Regression with 1SE Lambda")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Elastic Logit with 1se lambda
+
+```{r}
+pred.auc.elastic.1se.logit = performance(elastic.1se.logit.roc,"auc")
+pred.auc.elastic.1se.logit@y.values[[1]]
+```
+
+# Table to Regularization
+```{r}
+Ridge.logistics.min = confusionMatrix(as.factor(pred.ridge.min), as.factor(test.data$default))
+Ridge.logistics.1se = confusionMatrix(as.factor(pred.ridge.1se), as.factor(test.data$default))
+Lasso.logistics.min=confusionMatrix(as.factor(pred.lasso.min), as.factor(test.data$default))
+Lasso.logistics.1se=confusionMatrix(as.factor(pred.lasso.1se), as.factor(test.data$default))
+Elastic.logistics.min=confusionMatrix(as.factor(pred.elastic.min), as.factor(test.data$default))
+Elastic.logistics.1se=confusionMatrix(as.factor(pred.elastic.1se), as.factor(test.data$default))
+ 
+table2=data.frame(matrix(c("NA", "NA", logit$overall[1], logit$byClass[1], logit$byClass[2], logit$overall[2], pred.auc.logit@y.values[[1]],
+ridge.cv$lambda.min, "NA", Ridge.logistics.min$overall[1], Ridge.logistics.min$byClass[1], Ridge.logistics.min$byClass[2], Ridge.logistics.min$overall[2], pred.auc.ridge.min.logit@y.values[[1]], 
+"NA", ridge.cv$lambda.1se,   Ridge.logistics.1se$overall[1], Ridge.logistics.1se$byClass[1], Ridge.logistics.1se$byClass[2], Ridge.logistics.1se$overall[2], pred.auc.ridge.1se.logit@y.values[[1]],lasso.cv$lambda.min, 
+"NA", Lasso.logistics.min$overall[1], Lasso.logistics.min$byClass[1], Lasso.logistics.min$byClass[2], Lasso.logistics.min$overall[2], pred.auc.lasso.min.logit@y.values[[1]], 
+"NA", lasso.cv$lambda.1se, Lasso.logistics.1se$overall[1], Lasso.logistics.1se$byClass[1], Lasso.logistics.1se$byClass[2], Lasso.logistics.1se$overall[2], pred.auc.lasso.1se.logit@y.values[[1]],
+elastic.cv$lambda.min, "NA", Elastic.logistics.min$overall[1], Elastic.logistics.min$byClass[1], Elastic.logistics.min$byClass[2], Elastic.logistics.min$overall[2], pred.auc.elastic.min.logit@y.values[[1]], 
+"NA", elastic.cv$lambda.1se, Elastic.logistics.1se$overall[1], Elastic.logistics.1se$byClass[1], Elastic.logistics.1se$byClass[2], Elastic.logistics.1se$overall[2], pred.auc.elastic.1se.logit@y.values[[1]]), ncol=7))
+
+colnames(table2)=c("Logistics Regression", "Ridge Min", "Ridge 1se", "Lasso Min", "Lasso 1se", "Elastic Min", "Elastic 1se")
+row.names(table2)=c("Min Lambda", "1se Lambda", "Accuracy", "Sensitivity", "Specificity", "Kappa", "AUC")
+table2
+```
+
+
+
+## PCA= Primcipal Components Analysis
+
+```{r}
+head(data)
+```
+```{r}
+dim(data)
+```
+
+```{r}
+pca.data = prcomp(data[,1:23],scale. = T)
+summary(pca.data)
+```
+
+The $14^{th}$ principal component explains 93.95% of the variation of the independent variables.
+
+```{r}
+par(mfrow=c(1, 3))
+plot(pca.data,type="line", main = "") 
+plot(summary(pca.data)$importance[2,], main="Proportion of Variance", xlab="Principal Components", ylab="Proportion of Variance", type="l")
+plot(summary(pca.data)$importance[3,], main="Cumulative Proportion", xlab="Principal Components", ylab="Cumulative Proportion", type="l")
+```
+
+Selecting the 15 z-variables after pca transformation:
+
+```{r}
+data.pca=pca.data$x[, 1:15]
+data.pca=data.frame(cbind(data.pca, data$default))
+dim(data.pca)
+colnames(data.pca)[16]='default'
+names(data.pca)
+```
+
+Separating training and test PCA data
+
+```{r}
+train.pca.data=data.pca[tr.ind,]
+test.pca.data =data.pca[-tr.ind,]
+```
+
+## Fiting Logistics regression after PCA:
+
+
+```{r}
+logit.pca=glm(default ~., data=train.pca.data, family = binomial)
+summary(logit.pca)
+```
+
+```{r}
+p.pca = predict(logit.pca, test.pca.data, type = "response")
+pred.pca.logistics= ifelse(p.pca  > 0.5, 1, 0)
+table(pred.pca.logistics, test.pca.data$default)
+```
+
+
+
+## Confusion Matrix Logitics regression
+
+```{r}
+confusionMatrix(as.factor(test.pca.data$default), as.factor(pred.pca.logistics))
+```
+
+## ROC Curve
+
+
+```{r}
+logit.pca.roc = prediction(p.pca, test.pca.data$default)
+perf.logit.pca.roc = performance(logit.pca.roc,"tpr","fpr")
+plot(perf.logit.pca.roc, col = "red", main="ROC Plot for Logistic Regression on 15 PC")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for Logit on 15 PC
+
+```{r}
+pred.auc.logit.pca = performance(logit.pca.roc,"auc")
+pred.auc.logit.pca@y.values[[1]]
+```
+
+
+## LDA after PCA
+
+
+```{r}
+lda.pca=lda(default ~., data=train.pca.data)
+lda.pca
+```
+
+
+```{r}
+pred.pca.lda = predict(lda.pca, test.pca.data)
+table(pred.pca.lda$class, test.pca.data$default)
+```
+
+## Confusion Matrix of LDA after PCA
+
+```{r}
+confusionMatrix(pred.pca.lda$class, as.factor(test.pca.data$default))
+```
+
+## ROC Curve
+
+
+```{r}
+lda.pca.roc = prediction(pred.pca.lda$posterior[,2], test.pca.data$default)
+perf.lda.pca.roc = performance(lda.pca.roc,"tpr","fpr")
+plot(perf.lda.pca.roc, col = "red", main="ROC Plot for LDA on 15 PC")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for LDA on 15 PC
+
+```{r}
+pred.auc.lda.pca = performance(lda.pca.roc,"auc")
+pred.auc.lda.pca@y.values[[1]]
+```
+
+
+## QDA after PCA
+
+
+
+```{r}
+qda.pca=qda(default ~., data=train.pca.data)
+qda.pca
+```
+
+
+```{r}
+pred.pca.qda = predict(qda.pca, test.pca.data)
+table(pred.pca.qda$class, test.pca.data$default)
+```
+
+
+
+
+```{r}
+confusionMatrix(pred.pca.qda$class, as.factor(test.pca.data$default))
+```
+
+## ROC Curve
+
+
+```{r}
+qda.pca.roc = prediction(pred.pca.qda$posterior[,2], test.pca.data$default)
+perf.qda.pca.roc = performance(qda.pca.roc,"tpr","fpr")
+plot(perf.qda.pca.roc, col = "red", main="ROC Plot for QDA on 15 PC")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for LDA on 15 PC
+
+```{r}
+pred.auc.qda.pca = performance(qda.pca.roc,"auc")
+pred.auc.qda.pca@y.values[[1]]
+```
+
+
+## Naive Bayes after PCA:
+
+
+```{r}
+nb.pca = naiveBayes(default ~ ., data=train.pca.data)
+prob.nb.pca = predict(nb.pca, newdata = test.pca.data, type = "raw")
+pred.nb.pca = ifelse(prob.nb.pca[,2]>0.5,1,0)
+table(pred.nb.pca, as.factor(test.data$default))
+```
+
+
+## Confusion Matrix Naive Bayes:
+
+```{r}
+confusionMatrix(as.factor(pred.nb.pca), as.factor(test.pca.data$default))
+```
+
+
+## ROC Curve
+
+
+```{r}
+nb.pca.roc = prediction(prob.nb.pca[,2], test.pca.data$default)
+perf.nb.pca.roc = performance(nb.pca.roc,"tpr","fpr")
+plot(perf.nb.pca.roc, col = "red", main="ROC Plot for Naive Bayes on 15 PC")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for Naive Bayes on 15 PC
+
+```{r}
+pred.auc.nb.pca = performance(nb.pca.roc,"auc")
+pred.auc.nb.pca@y.values[[1]]
+```
+
+
+
+
+
+## PCA KNN K=1
+
+```{r}
+pred.pca.knn1= knn(as.matrix(train.pca.data), as.matrix(test.pca.data), train.pca.data$default, k = 1, prob=TRUE)
+table(pred.pca.knn1, as.factor(test.pca.data$default))
+```
+
+
+```{r}
+confusionMatrix(as.factor(pred.pca.knn1), as.factor(test.pca.data$default))
+```
+
+
+## ROC
+
+
+```{r}
+knn1.pca.roc = prediction(attr(pred.pca.knn1, "prob"), test.pca.data$default)
+perf.knn1.pca.roc = performance(knn1.pca.roc,"tpr","fpr")
+plot(perf.knn1.pca.roc, col = "red", main="ROC Plot for 1NN on 14 PC")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for 1NN on 15 PC
+
+```{r}
+pred.auc.knn1.pca = performance(knn1.pca.roc,"auc")
+pred.auc.knn1.pca@y.values[[1]]
+```
+
+
+
+## PCA KNN K=5
+
+```{r}
+pred.pca.knn5= knn(as.matrix(train.pca.data), as.matrix(test.pca.data), train.pca.data$default, k = 5, prob=TRUE)
+table(pred.pca.knn5, as.factor(test.pca.data$default))
+```
+
+
+```{r}
+confusionMatrix(as.factor(pred.pca.knn5), as.factor(test.pca.data$default))
+```
+
+
+## ROC
+
+
+```{r}
+knn5.pca.roc = prediction(attr(pred.pca.knn5, "prob"), test.pca.data$default)
+perf.knn5.pca.roc = performance(knn5.pca.roc,"tpr","fpr")
+plot(perf.knn5.pca.roc, col = "red", main="ROC Plot for 5NN on 14 PC")
+abline(0,1,col = "blue",lty = 2)
+```
+
+
+
+
+#AUC for 5NN on 15PC
+
+```{r}
+pred.auc.knn5.pca = performance(knn5.pca.roc,"auc")
+pred.auc.knn5.pca@y.values[[1]]
+```
+
+
+## PCA KNN K=10
+
+```{r}
+pred.pca.knn10= knn(as.matrix(train.pca.data), as.matrix(test.pca.data), train.pca.data$default, k = 10, prob=TRUE)
+table(pred.pca.knn10, as.factor(test.pca.data$default))
+```
+
+
+```{r}
+confusionMatrix(as.factor(pred.pca.knn10), as.factor(test.pca.data$default))
+```
+
+## ROC
+
+
+```{r}
+knn10.pca.roc = prediction(attr(pred.pca.knn10, "prob"), test.pca.data$default)
+perf.knn10.pca.roc = performance(knn10.pca.roc,"tpr","fpr")
+plot(perf.knn10.pca.roc, col = "red", main="ROC Plot for 10NN on 15 PC")
+abline(0,1,col = "blue",lty = 2)
+```
+
+#AUC for 5NN on 15 PC
+
+```{r}
+pred.auc.knn10.pca = performance(knn10.pca.roc,"auc")
+pred.auc.knn10.pca@y.values[[1]]
+```
+
+
+Table 3: All PCA models in one:
+```{r}
+logit.pca=confusionMatrix(as.factor(test.pca.data$default), as.factor(pred.pca.logistics))
+lda.pca=confusionMatrix(pred.pca.lda$class, as.factor(test.pca.data$default))
+qda.pca=confusionMatrix(pred.pca.qda$class, as.factor(test.pca.data$default))
+knn1.pca=confusionMatrix(as.factor(pred.pca.knn1), as.factor(test.pca.data$default))
+knn5.pca=confusionMatrix(as.factor(pred.pca.knn5), as.factor(test.pca.data$default))
+knn10.pca=confusionMatrix(as.factor(pred.pca.knn10), as.factor(test.pca.data$default))
+nb.pca=confusionMatrix(as.factor(pred.nb.pca), as.factor(test.pca.data$default))
+
+table3=data.frame(matrix(c(logit.pca$overall[1], logit.pca$byClass[1], logit.pca$byClass[2], logit.pca$overall[2], pred.auc.logit.pca@y.values[[1]], 
+                  lda.pca$overall[1], lda.pca$byClass[1], lda.pca$byClass[2], lda.pca$overall[2], pred.auc.lda.pca@y.values[[1]],
+                  qda.pca$overall[1], qda.pca$byClass[1], qda.pca$byClass[2], qda.pca$overall[2], pred.auc.qda.pca@y.values[[1]],
+                  knn1.pca$overall[1], knn1.pca$byClass[1], knn1.pca$byClass[2], knn1.pca$overall[2], "NA",
+                  knn5.pca$overall[1], knn5.pca$byClass[1], knn5.pca$byClass[2], knn5.pca$overall[2], "NA",
+                  knn10.pca$overall[1], knn10.pca$byClass[1], knn10.pca$byClass[2], knn10.pca$overall[2], "NA",
+                  nb.pca$overall[1], nb.pca$byClass[1], nb.pca$byClass[2], nb.pca$overall[2], pred.auc.nb.pca@y.values[[1]]), ncol = 7))
+
+
+colnames(table3)=c("Logistics.pca", "LDA.pca", "QDA.pca", "KNN=1.pca", "KNN=5.pca", "KNN=10.pca", "Naive Bayes.pca")
+row.names(table3)=c("Accuracy", "Sensitivity", "Specificity", "Kappa", "AUC")
+table3
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+accu.1NN=vector()
+sensitivity.1NN=vector()
+specificity.1NN=vector()
+
+accu.5NN=vector()
+sensitivity.5NN=vector()
+specificity.5NN=vector()
+
+for (i in 1:100){
+
+set.seed(i)
+
+tr.indc = sample(seq(1,dim(data)[1], 1),floor(0.7*dim(data)[1]), replace = F)
+
+
+train.pca.data=data.pca[tr.indc,]
+test.pca.data =data.pca[-tr.indc,]
+
+pred.pca.knn1= knn(as.matrix(train.pca.data), as.matrix(test.pca.data), train.pca.data$default, k = 1, prob=TRUE)
+knn.1=confusionMatrix(as.factor(pred.pca.knn1), as.factor(test.pca.data$default))
+
+pred.pca.knn5= knn(as.matrix(train.pca.data), as.matrix(test.pca.data), train.pca.data$default, k = 5, prob=TRUE)
+knn.5=confusionMatrix(as.factor(pred.pca.knn5), as.factor(test.pca.data$default))
+
+
+
+accu.1NN=c(knn.1$overall[1], accu.1NN)
+sensitivity.1NN=c(knn.1$byClass[1],sensitivity.1NN)
+specificity.1NN=c(knn.1$byClass[2],specificity.1NN)
+
+accu.5NN=c(knn.5$overall[1], accu.5NN)
+sensitivity.5NN=c(knn.5$byClass[1],sensitivity.5NN)
+specificity.5NN=c(knn.5$byClass[2],specificity.5NN)
+
+}
+```
+
+
+```{r}
+table4=data.frame(matrix(c(mean(accu.1NN), mean(sensitivity.1NN), mean(specificity.1NN), mean(accu.5NN), mean(sensitivity.5NN), mean(specificity.5NN)),ncol = 2))
+row.names(table4)=c("Accuracy", "Sensitivity", "Specificity")
+colnames(table4)=c("1NN.pca", "5NN.pca")
+table4
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
